@@ -10,12 +10,21 @@ use Steganography\Iterator\RectIterator;
 use MultipleIterator;
 use LimitIterator;
 
-class Image
+/**
+ * Image wrapper that handles LSB steganography encoding/decoding.
+ * 
+ * Provides methods to embed binary data into image pixels using
+ * the least significant bits of RGB channels.
+ */
+final class Image
 {
     public function __construct(
-        private ImageAdapterInterface $adapter
+        private readonly ImageAdapterInterface $adapter
     ) {}
 
+    /**
+     * Embed binary data into image pixels using LSB steganography.
+     */
     public function setBinaryString(BinaryIterator $binary): void
     {
         $iterator = new MultipleIterator(MultipleIterator::MIT_NEED_ALL | MultipleIterator::MIT_KEYS_ASSOC);
@@ -26,10 +35,13 @@ class Image
             [$x, $y] = $current['rect'];
             $bits = $current['bin']; // ['r' => bit, 'g' => bit, 'b' => bit]
             
-            $this->setPixel($x, $y, $bits);
+            $this->setPixelLsb($x, $y, $bits);
         }
     }
 
+    /**
+     * Extract binary data from image pixels using LSB steganography.
+     */
     public function getBinaryString(int $bitsPerPixel, int $lengthBits): string
     {
         $iterator = new RectIterator($this->adapter->getWidth(), $this->adapter->getHeight());
@@ -37,10 +49,10 @@ class Image
         $dataBin = '';
         
         // Read length header
-        $offset = $lengthBits / $bitsPerPixel;
+        $offset = (int) ($lengthBits / $bitsPerPixel);
         
         foreach (new LimitIterator($iterator, 0, $offset) as $pos) {
-            $lengthBin .= $this->getPixel($pos[0], $pos[1]);
+            $lengthBin .= $this->getPixelLsb($pos[0], $pos[1]);
         }
 
         $bits = (int) bindec($lengthBin);
@@ -48,39 +60,38 @@ class Image
 
         // Read data
         foreach (new LimitIterator($iterator, $offset, $length) as $pos) {
-            $dataBin .= $this->getPixel($pos[0], $pos[1]);
+            $dataBin .= $this->getPixelLsb($pos[0], $pos[1]);
         }
 
         return substr($dataBin, 0, $bits);
     }
 
-    private function setPixel(int $x, int $y, array $bits): void
+    /**
+     * Modify the LSB of R, G, B channels for a single pixel.
+     * 
+     * @param array<string, string> $bits Array with 'r', 'g', 'b' keys containing '0' or '1'
+     */
+    private function setPixelLsb(int $x, int $y, array $bits): void
     {
         $color = $this->adapter->getColor($x, $y);
         
-        // Modify LSB of R, G, B
-        // We assume 8-bit channels (0-255)
-        
-        $rBin = str_pad(decbin($color->r), 8, '0', STR_PAD_LEFT);
-        $gBin = str_pad(decbin($color->g), 8, '0', STR_PAD_LEFT);
-        $bBin = str_pad(decbin($color->b), 8, '0', STR_PAD_LEFT);
-
-        $color->r = bindec(substr($rBin, 0, -1) . $bits['r']);
-        $color->g = bindec(substr($gBin, 0, -1) . $bits['g']);
-        $color->b = bindec(substr($bBin, 0, -1) . $bits['b']);
+        // Use bitwise operations for efficiency (clear LSB then set)
+        $color->r = ($color->r & 0xFE) | (int) $bits['r'];
+        $color->g = ($color->g & 0xFE) | (int) $bits['g'];
+        $color->b = ($color->b & 0xFE) | (int) $bits['b'];
 
         $this->adapter->setColor($x, $y, $color);
     }
 
-    private function getPixel(int $x, int $y): string
+    /**
+     * Extract the LSB from R, G, B channels of a single pixel.
+     */
+    private function getPixelLsb(int $x, int $y): string
     {
         $color = $this->adapter->getColor($x, $y);
         
-        $rBin = str_pad(decbin($color->r), 8, '0', STR_PAD_LEFT);
-        $gBin = str_pad(decbin($color->g), 8, '0', STR_PAD_LEFT);
-        $bBin = str_pad(decbin($color->b), 8, '0', STR_PAD_LEFT);
-
-        return substr($rBin, -1) . substr($gBin, -1) . substr($bBin, -1);
+        // Use bitwise AND for efficiency
+        return ($color->r & 1) . ($color->g & 1) . ($color->b & 1);
     }
 
     public function save(string $path): void
@@ -96,6 +107,19 @@ class Image
     public function getPixelsCount(): int
     {
         return $this->adapter->getWidth() * $this->adapter->getHeight();
+    }
+
+    /**
+     * Get the image dimensions.
+     * 
+     * @return array{width: int, height: int}
+     */
+    public function getDimensions(): array
+    {
+        return [
+            'width' => $this->adapter->getWidth(),
+            'height' => $this->adapter->getHeight(),
+        ];
     }
 
     public function __destruct()

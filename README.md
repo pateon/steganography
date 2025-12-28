@@ -1,10 +1,10 @@
 # Steganography
 
-[![PHP Version](https://img.shields.io/badge/php-%3E%3D8.2-8892BF.svg)](https://php.net/)
+[![PHP Version](https://img.shields.io/badge/php-%3E%3D8.5-8892BF.svg)](https://php.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Latest Version](https://img.shields.io/github/v/tag/pateon/steganography?label=version)](https://github.com/pateon/steganography)
 
-A PHP 8.2+ library for invisible anti-counterfeiting of images using LSB (Least Significant Bit) Steganography.
+A PHP 8.5+ library for invisible anti-counterfeiting of images using LSB (Least Significant Bit) Steganography.
 This library hides a secret message inside an image file, invisible to the human eye.
 
 ## Features
@@ -13,14 +13,14 @@ This library hides a secret message inside an image file, invisible to the human
 - ✅ **Compression**: Compresses messages using Zlib before embedding
 - ✅ **Unicode Support**: Full support for UTF-8, including CJK characters and emoji
 - ✅ **Dual Driver Support**: Prioritizes `Imagick`, falls back to `GD` automatically
-- ✅ **Format Support**: Reads JPG, PNG, GIF as source images
+- ✅ **Format Support**: Reads JPG, PNG, GIF, WebP, BMP as source images
 - ✅ **Lossless Output**: Always outputs as PNG to preserve hidden data
-- ✅ **PHP 8.2+**: Uses modern PHP features (typed properties, constructor promotion, match expressions)
+- ✅ **PHP 8.5+**: Uses modern PHP features (typed constants, readonly properties, match expressions)
 - ✅ **Composer Ready**: PSR-4 autoloading, ready for integration
 
 ## Requirements
 
-- PHP >= 8.2
+- PHP >= 8.5
 - `ext-zlib` (for compression)
 - `ext-imagick` (recommended) **OR** `ext-gd` (at least one is required)
 
@@ -83,7 +83,7 @@ $processor = new Processor(
 
 1. **Output Format**: Always save encoded images as **PNG**. JPG compression is lossy and will destroy the hidden data.
 
-2. **Source Format**: JPG, PNG, and GIF are supported as source images.
+2. **Source Format**: JPG, PNG, GIF, WebP, and BMP are supported as source images.
 
 3. **Image Size**: Larger images can store more data. Use `calculateMaxMessageSize()` to check capacity.
 

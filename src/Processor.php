@@ -15,6 +15,7 @@ use Steganography\Image\Adapter\ImageAdapterInterface;
 use Steganography\Image\Adapter\ImagickAdapter;
 use Steganography\Image\Image;
 use Steganography\Iterator\BinaryIterator;
+use Imagick;
 use RuntimeException;
 use Throwable;
 
@@ -23,11 +24,12 @@ use Throwable;
  * 
  * Uses LSB (Least Significant Bit) steganography to hide data invisibly.
  * Prioritizes Imagick adapter with GD fallback for compatibility.
+ * Optimized for PHP 8.5+ with modern syntax and type safety.
  */
-class Processor
+final class Processor
 {
-    public const BITS_PER_PIXEL = 3;
-    public const LENGTH_BITS = 48;
+    public const int BITS_PER_PIXEL = 3;
+    public const int LENGTH_BITS = 48;
 
     private CompressorInterface $compressor;
     private EncoderInterface $encoder;
@@ -44,7 +46,7 @@ class Processor
     /**
      * Encode a message into an image.
      *
-     * @param string $filePath Path to the source image (supports JPG, PNG, GIF)
+     * @param string $filePath Path to the source image (supports JPG, PNG, GIF, WEBP, BMP)
      * @param string $message  The message to hide
      * @return Image The modified image (must be saved as PNG to preserve data)
      * @throws ImageTooSmallException If the image cannot hold the message
@@ -84,7 +86,7 @@ class Processor
         try {
             return $this->encoder->decode($binary, $this->compressor);
         } catch (Throwable $e) {
-            throw new DecodeException('Failed to decode: ' . $e->getMessage());
+            throw new DecodeException("Failed to decode: {$e->getMessage()}");
         }
     }
 
@@ -134,16 +136,17 @@ class Processor
     private function createAdapter(string $filePath): ImageAdapterInterface
     {
         // If user specified a preference
-        if ($this->preferredAdapter === 'gd') {
-            return $this->createGdAdapter($filePath);
-        }
-        
-        if ($this->preferredAdapter === 'imagick') {
-            return $this->createImagickAdapter($filePath);
-        }
+        return match ($this->preferredAdapter) {
+            'gd'      => $this->createGdAdapter($filePath),
+            'imagick' => $this->createImagickAdapter($filePath),
+            default   => $this->createAutoAdapter($filePath),
+        };
+    }
 
+    private function createAutoAdapter(string $filePath): ImageAdapterInterface
+    {
         // Auto-detect: prioritize Imagick
-        if (extension_loaded('imagick') && class_exists(\Imagick::class)) {
+        if (extension_loaded('imagick') && class_exists(Imagick::class)) {
             try {
                 return $this->createImagickAdapter($filePath);
             } catch (Throwable) {

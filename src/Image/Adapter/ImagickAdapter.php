@@ -8,9 +8,16 @@ use Steganography\Image\Color;
 use Imagick;
 use ImagickDraw;
 use ImagickPixel;
+use ImagickException;
 use RuntimeException;
 
-class ImagickAdapter implements ImageAdapterInterface
+/**
+ * Imagick adapter for image manipulation with LSB steganography support.
+ * 
+ * Provides high-quality image processing using the ImageMagick library.
+ * Optimized for PHP 8.5+ with modern syntax and performance improvements.
+ */
+final class ImagickAdapter implements ImageAdapterInterface
 {
     private Imagick $image;
     private int $width;
@@ -19,7 +26,7 @@ class ImagickAdapter implements ImageAdapterInterface
     public function load(string $path): void
     {
         if (!file_exists($path)) {
-            throw new RuntimeException("File not found: $path");
+            throw new RuntimeException("File not found: {$path}");
         }
 
         try {
@@ -30,8 +37,8 @@ class ImagickAdapter implements ImageAdapterInterface
             
             $this->width = $this->image->getImageWidth();
             $this->height = $this->image->getImageHeight();
-        } catch (\ImagickException $e) {
-            throw new RuntimeException("Failed to load image: " . $e->getMessage());
+        } catch (ImagickException $e) {
+            throw new RuntimeException("Failed to load image: {$e->getMessage()}");
         }
     }
 
@@ -48,20 +55,34 @@ class ImagickAdapter implements ImageAdapterInterface
     public function getColor(int $x, int $y): Color
     {
         $pixel = $this->image->getImagePixelColor($x, $y);
-        // Pass false to get integer values (0-255) instead of normalized floats (0.0-1.0)
-        $color = $pixel->getColor(false);
         
+        // PHP 8.5: ImagickPixel::getColor() signature changed
+        // The boolean parameter is removed, now uses ImagickColorNormalization enum
+        // Use getColorAsString() and parse RGB values for cross-version compatibility
+        $colorString = $pixel->getColorAsString();
+        
+        // Parse "srgb(r,g,b)" or "rgb(r,g,b)" format
+        if (preg_match('/\((\d+),(\d+),(\d+)/', $colorString, $matches)) {
+            return new Color(
+                (int) $matches[1],
+                (int) $matches[2],
+                (int) $matches[3],
+                0
+            );
+        }
+        
+        // Fallback: use getColorValue for individual channels (0.0-1.0 range)
         return new Color(
-            (int) $color['r'],
-            (int) $color['g'],
-            (int) $color['b'],
+            (int) round($pixel->getColorValue(Imagick::COLOR_RED) * 255),
+            (int) round($pixel->getColorValue(Imagick::COLOR_GREEN) * 255),
+            (int) round($pixel->getColorValue(Imagick::COLOR_BLUE) * 255),
             0
         );
     }
 
     public function setColor(int $x, int $y, Color $color): void
     {
-        $pixel = new ImagickPixel(sprintf('rgb(%d,%d,%d)', $color->r, $color->g, $color->b));
+        $pixel = new ImagickPixel("rgb({$color->r},{$color->g},{$color->b})");
         
         // Use ImagickDraw to set individual pixel (more reliable across versions)
         $draw = new ImagickDraw();

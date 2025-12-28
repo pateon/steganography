@@ -5,38 +5,48 @@ declare(strict_types=1);
 namespace Steganography\Image\Adapter;
 
 use Steganography\Image\Color;
+use GdImage;
 use RuntimeException;
 
-class GdAdapter implements ImageAdapterInterface
+/**
+ * GD adapter for image manipulation with LSB steganography support.
+ * 
+ * Provides image processing using the GD library as a fallback
+ * when ImageMagick is not available. Optimized for PHP 8.5+.
+ */
+final class GdAdapter implements ImageAdapterInterface
 {
-    private \GdImage $image;
+    private GdImage $image;
     private int $width;
     private int $height;
 
     public function load(string $path): void
     {
         if (!file_exists($path)) {
-            throw new RuntimeException("File not found: $path");
+            throw new RuntimeException("File not found: {$path}");
         }
 
         $info = getimagesize($path);
         if ($info === false) {
-            throw new RuntimeException("Invalid image file: $path");
+            throw new RuntimeException("Invalid image file: {$path}");
         }
 
-        $this->width = $info[0];
-        $this->height = $info[1];
+        [$this->width, $this->height] = $info;
         $type = $info[2];
 
         $image = match ($type) {
             IMAGETYPE_JPEG => imagecreatefromjpeg($path),
-            IMAGETYPE_PNG => imagecreatefrompng($path),
-            IMAGETYPE_GIF => imagecreatefromgif($path),
-            default => false,
+            IMAGETYPE_PNG  => imagecreatefrompng($path),
+            IMAGETYPE_GIF  => imagecreatefromgif($path),
+            IMAGETYPE_WEBP => imagecreatefromwebp($path),
+            IMAGETYPE_BMP  => imagecreatefrombmp($path),
+            default        => throw new RuntimeException(
+                "Unsupported image type: {$path} (type: {$type})"
+            ),
         };
 
         if ($image === false) {
-            throw new RuntimeException("Failed to load image or unsupported type: $path (type: $type)");
+            throw new RuntimeException("Failed to load image: {$path}");
         }
         
         $this->image = $image;
@@ -60,12 +70,13 @@ class GdAdapter implements ImageAdapterInterface
     public function getColor(int $x, int $y): Color
     {
         $rgb = imagecolorat($this->image, $x, $y);
-        $r = ($rgb >> 16) & 0xFF;
-        $g = ($rgb >> 8) & 0xFF;
-        $b = $rgb & 0xFF;
-        $a = ($rgb >> 24) & 0x7F; // GD alpha is 0-127
-
-        return new Color($r, $g, $b, $a);
+        
+        return new Color(
+            ($rgb >> 16) & 0xFF,
+            ($rgb >> 8) & 0xFF,
+            $rgb & 0xFF,
+            ($rgb >> 24) & 0x7F  // GD alpha is 0-127
+        );
     }
 
     public function setColor(int $x, int $y, Color $color): void
@@ -85,7 +96,7 @@ class GdAdapter implements ImageAdapterInterface
     {
         ob_start();
         imagepng($this->image, null, 0);
-        return ob_get_clean();
+        return (string) ob_get_clean();
     }
 
     public function destroy(): void

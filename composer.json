@@ -1,6 +1,6 @@
 {
     "name": "pateon/steganography",
-    "description": "Invisible anti-counterfeiting for images using LSB Steganography (PHP 8.4+). Supports Imagick and GD.",
+    "description": "Invisible anti-counterfeiting for images using LSB Steganography (PHP 8.5+). Supports Imagick and GD.",
     "type": "library",
     "license": "MIT",
     "keywords": ["steganography", "image", "watermark", "anti-counterfeiting", "lsb", "imagick", "gd"],
@@ -10,7 +10,7 @@
         }
     },
     "require": {
-        "php": ">=8.2",
+        "php": ">=8.5.0",
         "ext-zlib": "*"
     },
     "suggest": {
